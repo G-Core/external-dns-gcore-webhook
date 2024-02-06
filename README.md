@@ -153,7 +153,7 @@ spec:
 export GCORE_PERMANENT_API_TOKEN=xxxxxxxxxxxxxxxxxxxxxx
 
 CGO_ENABLED=0 go build
-./external-dns-gcore
+./external-dns-gcore-webhook
 
 # In another terminal
 curl http://localhost:8888/records -H 'Accept: application/external.dns.webhook+json;version=1'
