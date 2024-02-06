@@ -61,7 +61,8 @@ clean: ## Clean the build directory
 
 .PHONY: build
 build: ## Build the binary
-	LOG_LEVEL=$(LOG_LEVEL) LOG_ENVIRONMENT=$(LOG_ENVIRONMENT) LOG_FORMAT=$(LOG_FORMAT) CGO_ENABLED=0 go build -o $(ARTIFACT_NAME) .
+	LOG_LEVEL=$(LOG_LEVEL) LOG_ENVIRONMENT=$(LOG_ENVIRONMENT) LOG_FORMAT=$(LOG_FORMAT) CGO_ENABLED=0 go build -mod \
+	vendor -o $(ARTIFACT_NAME) .
 
 .PHONY: run
 run:build ## Run the binary on local machine
