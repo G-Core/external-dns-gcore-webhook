@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	gdns "github.com/G-Core/gcore-dns-sdk-go"
-
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/plan"
 )
@@ -84,6 +83,9 @@ func Test_dnsProvider_Records(t *testing.T) {
 							},
 						}, nil
 					},
+					zones: func(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error) {
+						return []gdns.Zone{}, nil
+					},
 				},
 				dryRun: false,
 			},
@@ -130,6 +132,21 @@ func Test_dnsProvider_Records(t *testing.T) {
 						}
 						return res, nil
 					},
+					zones: func(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error) {
+						return []gdns.Zone{
+							{
+								Name: "example.com",
+								Records: []gdns.ZoneRecord{
+									{
+										Name:         "test.example.com",
+										Type:         "A",
+										TTL:          10,
+										ShortAnswers: []string{"1.1.1.1"},
+									},
+								},
+							},
+						}, nil
+					},
 				},
 				dryRun: false,
 			},
@@ -151,6 +168,9 @@ func Test_dnsProvider_Records(t *testing.T) {
 						filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error) {
 						return nil, fmt.Errorf("test")
 					},
+					zones: func(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error) {
+						return []gdns.Zone{}, nil
+					},
 				},
 				dryRun: false,
 			},
@@ -164,9 +184,9 @@ func Test_dnsProvider_Records(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &DnsProvider{
-				domainFilter: tt.fields.domainFilter,
-				client:       tt.fields.client,
-				dryRun:       tt.fields.dryRun,
+				//domainFilter: tt.fields.domainFilter,
+				client: tt.fields.client,
+				dryRun: tt.fields.dryRun,
 			}
 			got, err := p.Records(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
@@ -230,9 +250,9 @@ func Test_dnsProvider_GetDomainFilter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &DnsProvider{
-				domainFilter: tt.fields.domainFilter,
-				client:       tt.fields.client,
-				dryRun:       tt.fields.dryRun,
+				//domainFilter: tt.fields.domainFilter,
+				client: tt.fields.client,
+				dryRun: tt.fields.dryRun,
 			}
 			if got := p.GetDomainFilter(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetDomainFilter() = %v, want %v", got, tt.want)
@@ -443,9 +463,9 @@ func Test_dnsProvider_ApplyChanges(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &DnsProvider{
-				domainFilter: tt.fields.domainFilter,
-				client:       tt.fields.client,
-				dryRun:       tt.fields.dryRun,
+				//domainFilter: tt.fields.domainFilter,
+				client: tt.fields.client,
+				dryRun: tt.fields.dryRun,
 			}
 			if err := p.ApplyChanges(tt.args.ctx, tt.args.changes); (err != nil) != tt.wantErr {
 				t.Errorf("ApplyChanges() error = %v, wantErr %v", err, tt.wantErr)
