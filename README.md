@@ -57,7 +57,7 @@ spec:
             - --source=ingress
             - --provider=webhook
 
-        - image: ghcr.io/kokizzu/external-dns-gcore-webhook:master
+        - image: ghcr.io/G-Core/external-dns-gcore-webhook:master
           name: gcore-webhook
           ports:
             - containerPort: 8888

@@ -1,4 +1,4 @@
-module github.com/kokizzu/external-dns-gcore-webhook
+module github.com/G-Core/external-dns-gcore-webhook
 
 go 1.21
 

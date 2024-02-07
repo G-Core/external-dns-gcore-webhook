@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kokizzu/external-dns-gcore-webhook/gcoreprovider"
+	"github.com/G-Core/external-dns-gcore-webhook/gcoreprovider"
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"

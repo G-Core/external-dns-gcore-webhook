@@ -15,7 +15,7 @@ LOG_ENVIRONMENT = production
 LOG_FORMAT = auto
 
 REGISTRY ?= ghcr.io
-IMAGE_NAME ?= kokizzu/external-dns-gcore-webhook
+IMAGE_NAME ?= G-Core/external-dns-gcore-webhook
 IMAGE_TAG ?= latest
 IMAGE = $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
 
@@ -89,5 +89,5 @@ unit-test: ## Run unit tests
 
 .PHONY: release-check
 release-check: ## Check if the release will work
-	GITHUB_SERVER_URL=github.com GITHUB_REPOSITORY=kokizzu/external-dns-gcore-webhook REGISTRY=$(REGISTRY) IMAGE_NAME=$(IMAGE_NAME) goreleaser release --snapshot --clean --skip=publish
+	GITHUB_SERVER_URL=github.com GITHUB_REPOSITORY=G-Core/external-dns-gcore-webhook REGISTRY=$(REGISTRY) IMAGE_NAME=$(IMAGE_NAME) goreleaser release --snapshot --clean --skip=publish
 
