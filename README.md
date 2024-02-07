@@ -106,6 +106,10 @@ subjects:
 
 `$ kubectl apply -f external-dns-gcore.yaml`
 
+to debug:
+
+`$ kubectl logs -f external-dns-xxxxPod -c gcore-webhook`
+
 Example deployment using external DNS:
 
 ```yaml
@@ -135,8 +139,8 @@ kind: Service
 metadata:
   name: nginx
   annotations:
-    external-dns.alpha.kubernetes.io/internal-hostname: nginxinternal.example.com.
-    external-dns.alpha.kubernetes.io/hostname: nginx.example.com.
+    external-dns.alpha.kubernetes.io/internal-hostname: example-internal.kokizzu.foo.bar.
+    external-dns.alpha.kubernetes.io/hostname: example.kokizzu.foo.bar
 
 spec:
   selector:
@@ -146,6 +150,27 @@ spec:
     - protocol: TCP
       port: 4080
       targetPort: 1080
+```
+
+If doesn't work, make sure zone name is correct with one on gcore dns dashboard.
+
+it would at least create something like this:
+
+```
+time="2024-02-07T12:03:52Z" level=debug msg="gcore: finishing get domain filters with [example.dev .example.dev kokizzu.foo.bar .kokizzu.foo.bar]"
+time="2024-02-07T12:03:53Z" level=debug msg="gcore: finishing get records: 3"
+time="2024-02-07T12:03:53Z" level=debug msg="returning records count: 3" requestMethod=GET requestPath=/records
+time="2024-02-07T12:03:53Z" level=debug msg="requesting adjust endpoints count: 1"
+time="2024-02-07T12:03:53Z" level=debug msg="return adjust endpoints response, resultEndpointCount: 1"
+time="2024-02-07T12:03:53Z" level=debug msg="requesting apply changes, create: 3 , updateOld: 0, updateNew: 0, delete: 0" requestMethod=POST requestPath=/records
+time="2024-02-07T12:03:53Z" level=info msg="gcore: starting apply changes createLen=3, deleteLen=0, updateOldLen=0, updateNewLen=0"
+time="2024-02-07T12:03:53Z" level=debug msg="gcore: starting get domain filters"
+time="2024-02-07T12:03:53Z" level=debug msg="gcore: finishing get domain filters with [example.dev .example.dev kokizzu.foo.bar .kokizzu.foo.bar]"
+time="2024-02-07T12:03:53Z" level=debug msg="create example-internal.kokizzu.foo.bar A 10.111.253.251"
+time="2024-02-07T12:03:53Z" level=debug msg="create example-internal.kokizzu.foo.bar TXT \"heritage=external-dns,external-dns/owner=default,external-dns/resource=service/default/nginx\""
+time="2024-02-07T12:03:53Z" level=debug msg="create a-example-internal.kokizzu.foo.bar TXT \"heritage=external-dns,external-dns/owner=default,external-dns/resource=service/default/nginx\""
+time="2024-02-07T12:03:54Z" level=info msg="gcore: finishing apply changes created=3, deleted=0, updated=0"
+time="2024-02-07T12:04:51Z" level=debug msg="requesting records" requestMethod=GET requestPath=/records
 ```
 
 ## Local Deployment
