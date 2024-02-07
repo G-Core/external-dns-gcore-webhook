@@ -25,6 +25,8 @@ stringData:
   GCORE_PERMANENT_API_TOKEN: "xxxxxxxxxxxxxxxxxxxxxx"
 ```
 
+retrieve your own permanent API token from https://accounts.gcore.com/profile/api-tokens
+
 `$ kubectl apply -f secret.yaml`
 
 external-dns-gcore.yaml
@@ -172,6 +174,9 @@ time="2024-02-07T12:03:53Z" level=debug msg="create a-example-internal.kokizzu.f
 time="2024-02-07T12:03:54Z" level=info msg="gcore: finishing apply changes created=3, deleted=0, updated=0"
 time="2024-02-07T12:04:51Z" level=debug msg="requesting records" requestMethod=GET requestPath=/records
 ```
+
+![image](https://github.com/kokizzu/external-dns-gcore-webhook/assets/1061610/2be9dc0b-5971-468b-88dd-704e208eea2b)
+
 
 ## Local Deployment
 
