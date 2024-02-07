@@ -43,6 +43,7 @@ var (
 )
 
 func main() {
+	log.SetLevel(log.DebugLevel)
 	fmt.Printf(banner, Version)
 	ApiKey = os.Getenv(gcoreprovider.EnvAPIToken)
 	ServerHost = os.Getenv(`SERVER_HOST`)

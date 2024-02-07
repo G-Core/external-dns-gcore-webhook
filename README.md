@@ -57,12 +57,13 @@ spec:
             - --source=ingress
             - --provider=webhook
 
-        - image: ghcr.io/kokizzu/external-dns-gcore-webhook:v0.0.1
+        - image: ghcr.io/kokizzu/external-dns-gcore-webhook:master
           name: gcore-webhook
           ports:
             - containerPort: 8888
+          imagePullPolicy: Always
           env:
-            - name: GCORE_API_KEY
+            - name: GCORE_PERMANENT_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: external-dns-gcore-secret
