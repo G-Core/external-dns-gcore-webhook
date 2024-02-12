@@ -1,15 +1,5 @@
 
-# ExternalDNS - GCore
-
-Inspired from other 5 external DNS examples:
-- https://github.com/stackitcloud/external-dns-stackit-webhook
-- https://github.com/glesys/external-dns-glesys
-- https://github.com/mconfalonieri/external-dns-hetzner-webhook
-- https://github.com/bizflycloud/external-dns-bizflycloud-webhook
-- https://github.com/mrueg/external-dns-netcup-webhook
-
-Most of the codes taken from [this](//github.com/kubernetes-sigs/external-dns/pull/2203/commits) commits, 
-with modification to match current [gcore SDK](//github.com/G-Core/gcore-dns-sdk-go).
+# ExternalDNS - Gcore
 
 ## Deployment in kubernetes:
 
@@ -204,3 +194,11 @@ curl http://localhost:8888/records -H 'Accept: application/external.dns.webhook+
 ## How To Contribute
 
 Any pull request are welcome, please make sure to include the test case.
+
+Inspired from other 5 external DNS examples if you need further reference:
+- https://github.com/stackitcloud/external-dns-stackit-webhook
+- https://github.com/glesys/external-dns-glesys
+- https://github.com/mconfalonieri/external-dns-hetzner-webhook
+- https://github.com/bizflycloud/external-dns-bizflycloud-webhook
+- https://github.com/mrueg/external-dns-netcup-webhook
+
