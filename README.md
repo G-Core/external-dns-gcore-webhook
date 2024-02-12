@@ -1,6 +1,12 @@
 
 # ExternalDNS - Gcore
 
+[![](https://img.shields.io/github/license/G-Core/external-dns-gcore-webhook?style=for-the-badge)](LICENSE)
+
+ExternalDNS is a Kubernetes add-on for automatically managing Domain Name System (DNS) records for Kubernetes services by using different DNS providers. By default, Kubernetes manages DNS records internally, but ExternalDNS takes this functionality a step further by delegating the management of DNS records to an external DNS provider such as this one. Therefore, the Hetzner webhook allows to manage your Hetzner domains inside your kubernetes cluster with [ExternalDNS](//github.com/kubernetes-sigs/external-dns).
+
+To use ExternalDNS with Gcore you need to get API token from https://accounts.gcore.com/profile/api-tokens.
+
 ## Deployment in kubernetes:
 
 secret.yaml
