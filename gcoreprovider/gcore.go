@@ -40,6 +40,7 @@ type dnsManager interface {
 		values []gdns.ResourceRecord, ttl int, opts ...gdns.AddZoneOpt) error
 	ZonesWithRecords(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
 	Zones(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
+	AllZones(ctx context.Context) ([]gdns.Zone, error)
 	DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error
 }
 
@@ -236,7 +237,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 
 func (p *DnsProvider) GetDomainFilter() endpoint.DomainFilter {
 	log.Debugf("%s: starting get domain filters", ProviderName)
-	zs, err := p.client.Zones(context.Background())
+	zs, err := p.client.ZonesWithRecords(context.Background())
 	if err != nil {
 		log.Errorf("%s: get domain filters: %v", ProviderName, err)
 		return endpoint.DomainFilter{}

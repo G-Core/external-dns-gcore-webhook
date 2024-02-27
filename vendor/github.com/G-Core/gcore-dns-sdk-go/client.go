@@ -1,10 +1,12 @@
 package dnssdk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -89,7 +91,7 @@ func (c *Client) CreateZone(ctx context.Context, name string) (uint64, error) {
 	return res.ID, nil
 }
 
-// Zones gets all zones.
+// Zones gets first 100 zones.
 // https://apidocs.gcore.com/dns#tag/zones/operation/Zones
 func (c *Client) Zones(ctx context.Context, filters ...func(zone *ZonesFilter)) ([]Zone, error) {
 	res := ListZones{}
@@ -97,12 +99,199 @@ func (c *Client) Zones(ctx context.Context, filters ...func(zone *ZonesFilter)) 
 	for _, op := range filters {
 		op(&filter)
 	}
-	err := c.do(ctx, http.MethodGet, "/v2/zones?"+filter.query(), nil, &res)
+	err := c.do(ctx, http.MethodGet, "/v2/zones?limit=100&"+filter.query(), nil, &res)
 	if err != nil {
 		return nil, fmt.Errorf("request: %w", err)
 	}
 
 	return res.Zones, nil
+}
+
+/*
+ZonesParam parameter for ZonesWithParam method
+
+offset
+integer <uint64>
+Amount of records to skip before beginning to write in response.
+
+limit
+integer <uint64>
+Max number of records in response
+
+order_by
+string
+Field name to sort by
+
+order_direction
+string
+Enum: "asc" "desc"
+
+Ascending or descending order
+id
+Array of integers <int64> [ items <int64 > ]
+
+to pass several ids id=1&id=3&id=5...
+client_id
+Array of integers <int64> [ items <int64 > ]
+
+to pass several client_ids client_id=1&client_id=3&client_id=5...
+reseller_id
+Array of integers <int64> [ items <int64 > ]
+
+iam_reseller_id
+Array of integers <int64> [ items <int64 > ]
+
+name
+Array of strings
+to pass several names name=first&name=second...
+
+case_sensitive
+boolean
+
+exact_match
+boolean
+
+enabled
+boolean
+
+status
+string
+
+dynamic
+boolean
+Zones with dynamic RRsets
+
+healthcheck
+boolean
+Zones with RRsets that have healthchecks
+
+updated_at_from
+string <date-time>
+
+updated_at_to
+string <date-time>
+*/
+type ZonesParam struct {
+	Offset         uint64
+	Limit          uint64
+	OrderBy        string
+	OrderDirection string
+	ID             []uint64
+	ClientID       []uint64
+	ResellerID     []uint64
+	IAMResellerID  []uint64
+	Name           []string
+	CaseSensitive  bool
+	ExactMatch     bool
+	Enabled        bool
+	Status         string
+	Dynamic        bool
+	Healthcheck    bool
+	UpdatedAtFrom  time.Time
+	UpdatedAtTo    time.Time
+}
+
+func (zp ZonesParam) query() string {
+	form := url.Values{}
+	if zp.Offset > 0 {
+		form.Add("offset", fmt.Sprint(zp.Offset))
+	}
+	if zp.Limit > 0 {
+		form.Add("limit", fmt.Sprint(zp.Limit))
+	}
+	if zp.OrderBy != "" {
+		form.Add("order_by", zp.OrderBy)
+	}
+	if zp.OrderDirection != "" {
+		form.Add("order_direction", zp.OrderDirection)
+	}
+	if len(zp.ID) > 0 {
+		for _, id := range zp.ID {
+			form.Add("id", fmt.Sprint(id))
+		}
+	}
+	if len(zp.ClientID) > 0 {
+		for _, id := range zp.ClientID {
+			form.Add("client_id", fmt.Sprint(id))
+		}
+	}
+	if len(zp.ResellerID) > 0 {
+		for _, id := range zp.ResellerID {
+			form.Add("reseller_id", fmt.Sprint(id))
+		}
+	}
+	if len(zp.IAMResellerID) > 0 {
+		for _, id := range zp.IAMResellerID {
+			form.Add("iam_reseller_id", fmt.Sprint(id))
+		}
+	}
+	if len(zp.Name) > 0 {
+		for _, name := range zp.Name {
+			form.Add("name", name)
+		}
+	}
+	if zp.CaseSensitive {
+		form.Add("case_sensitive", "true")
+	}
+	if zp.ExactMatch {
+		form.Add("exact_match", "true")
+	}
+	if zp.Enabled {
+		form.Add("enabled", "true")
+	}
+	if zp.Status != "" {
+		form.Add("status", zp.Status)
+	}
+	if zp.Dynamic {
+		form.Add("dynamic", "true")
+	}
+	if zp.Healthcheck {
+		form.Add("healthcheck", "true")
+	}
+	if !zp.UpdatedAtFrom.IsZero() {
+		form.Add("updated_at_from", zp.UpdatedAtFrom.Format(time.RFC3339))
+	}
+	if !zp.UpdatedAtTo.IsZero() {
+		form.Add("updated_at_to", zp.UpdatedAtTo.Format(time.RFC3339))
+	}
+	return form.Encode()
+}
+
+// ZonesWithParam gets zones with params.
+func (c *Client) ZonesWithParam(ctx context.Context, param ZonesParam) (res ListZones, err error) {
+	err = c.do(ctx, http.MethodGet, "/v2/zones?"+param.query(), nil, &res)
+	if err != nil {
+		return res, fmt.Errorf("request: %w", err)
+	}
+
+	return res, nil
+}
+
+// AllZones get all zones per 1k
+func (c *Client) AllZones(ctx context.Context) ([]Zone, error) {
+	offset := 0
+	const limit = 1000
+	var zones []Zone
+	for z := 0; z < 10; z++ {
+		param := ZonesParam{
+			Offset: uint64(offset),
+			Limit:  uint64(limit),
+		}
+		zoneRes, err := c.ZonesWithParam(ctx, param)
+		if err != nil {
+			return zones, err
+		}
+		zones = append(zones, zoneRes.Zones...)
+		if zoneRes.Error != `` {
+			return zones, fmt.Errorf("request: %s", zoneRes.Error)
+		}
+		fetchedZones := len(zoneRes.Zones)
+		if fetchedZones == 0 || fetchedZones < limit {
+			break
+		}
+		offset += limit
+	}
+	return zones, nil
 }
 
 // ZonesWithRecords gets all zones with records information.
@@ -368,10 +557,16 @@ func (c *Client) do(ctx context.Context, method, uri string, bodyParams interfac
 		return e
 	}
 
+	// try read all so we can put breakpoint here
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
 	if dest == nil {
 		return nil
 	}
 
 	// nolint: wrapcheck
-	return json.NewDecoder(resp.Body).Decode(dest)
+	return json.NewDecoder(bytes.NewReader(body)).Decode(dest)
 }

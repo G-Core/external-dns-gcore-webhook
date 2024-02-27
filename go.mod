@@ -3,7 +3,7 @@ module github.com/G-Core/external-dns-gcore-webhook
 go 1.21
 
 require (
-	github.com/G-Core/gcore-dns-sdk-go v0.2.6
+	github.com/G-Core/gcore-dns-sdk-go v0.2.7-0.20240226132216-e38e3d3b4c10
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/sync v0.6.0

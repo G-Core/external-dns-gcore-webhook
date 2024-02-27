@@ -10,7 +10,9 @@ import (
 
 // ListZones dto to read list of zones from API
 type ListZones struct {
-	Zones []Zone `json:"zones"`
+	Zones       []Zone `json:"zones"`
+	TotalAmount int    `json:"total_amount"`
+	Error       string `json:"error,omitempty"`
 }
 
 // Zone dto to read info from API
@@ -30,12 +32,224 @@ type CreateResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+type RRSetMeta map[string]any
+
 // RRSet dto as part of zone info from API
 type RRSet struct {
 	Type    string           `json:"type"`
 	TTL     int              `json:"ttl"`
 	Records []ResourceRecord `json:"resource_records"`
 	Filters []RecordFilter   `json:"filters"`
+	Meta    RRSetMeta        `json:"meta"` // this one for failover, not Meta property inside Records
+	// according to https://api.gcore.com/docs/dns#tag/rrsets/operation/CreateRRSet
+	/*
+	   asn (array of int)
+	   continents (array of string)
+	   countries (array of string)
+	   latlong (array of float64, latitude and longitude)
+	   fallback (bool)
+	   backup (bool)
+	   notes (string)
+	   weight (float)
+	   ip (string)
+	   failover (object, beta feature, might be changed in the future) can have fields 10.1. protocol (string, required, HTTP, TCP, UDP, ICMP) 10.2. port (int, required, 1-65535) 10.3. frequency (int, required, in seconds 10-3600) 10.4. timeout (int, required, in seconds 1-10), 10.5. method (string, only for protocol=HTTP) 10.6. command (string, bytes to be sent only for protocol=TCP/UDP) 10.7. url (string, only for protocol=HTTP) 10.8. tls (bool, only for protocol=HTTP) 10.9. regexp (string regex to match, only for non-ICMP) 10.10. http_status_code (int, only for protocol=HTTP) 10.11. host (string, only for protocol=HTTP)
+	*/
+}
+
+// SetMetaAsn
+func (r *RRSet) SetMetaAsn(asns []int) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["asn"] = asns
+	return r
+}
+
+// SetMetaContinents
+func (r *RRSet) SetMetaContinents(continents []string) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["continents"] = continents
+	return r
+}
+
+// SetMetaCountries
+func (r *RRSet) SetMetaCountries(countries []string) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["countries"] = countries
+	return r
+}
+
+// SetMetaLatLong
+func (r *RRSet) SetMetaLatLong(lat, long float64) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["latlong"] = []float64{lat, long}
+	return r
+}
+
+// SetMetaFallback
+func (r *RRSet) SetMetaFallback(fallback bool) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["fallback"] = fallback
+	return r
+}
+
+// SetMetaBackup
+func (r *RRSet) SetMetaBackup(backup bool) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["backup"] = backup
+	return r
+}
+
+// SetMetaNotes
+func (r *RRSet) SetMetaNotes(notes string) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["notes"] = notes
+	return r
+}
+
+// SetMetaWeight
+func (r *RRSet) SetMetaWeight(weight float64) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["weight"] = weight
+	return r
+}
+
+// SetMetaIP
+func (r *RRSet) SetMetaIP(ip string) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["ip"] = ip
+	return r
+}
+
+// NewRRSetMetaFailoverFromMap for failover
+func NewRRSetMetaFailoverFromMap(failover map[string]any) *RRSetMeta {
+	return &RRSetMeta{
+		"failover": failover,
+	}
+}
+
+// SetMetaFailover
+func (r *RRSet) SetMetaFailover(failover map[string]any) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["failover"] = failover
+	return r
+}
+
+// NewRRSetMetaGeodnsLink
+
+func NewRRSetMetaGeodnsLink(link string) *RRSetMeta {
+	return &RRSetMeta{
+		"geodns_link": link,
+	}
+}
+
+// SetMetaGeodnsLink
+func (r *RRSet) SetMetaGeodnsLink(link string) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["geodns_link"] = link
+	return r
+}
+
+// FailoverHttpCheck for failover meta property with protocol=HTTP
+type FailoverHttpCheck struct {
+	Protocol  string `json:"protocol"` // HTTP
+	Port      uint16 `json:"port"`
+	Frequency uint16 `json:"frequency"`
+	Timeout   uint16 `json:"timeout"`
+	// HTTP only
+	Method         string  `json:"method,omitempty"` // GET, POST, PUT, DELETE, PATCH
+	URL            string  `json:"url,omitempty"`    // without / prefix
+	Host           *string `json:"host,omitempty"`
+	HttpStatusCode *uint16 `json:"http_status_code,omitempty"` // 100-599
+	Regexp         *string `json:"regexp,omitempty"`
+	TLS            bool    `json:"tls"`
+}
+
+// FailoverTcpUdpCheck for failover meta property with protocol=TCP|UDP
+type FailoverTcpUdpCheck struct {
+	Protocol  string `json:"protocol"` // TCP or UDP
+	Port      uint16 `json:"port"`
+	Frequency uint16 `json:"frequency"`
+	Timeout   uint16 `json:"timeout"`
+	// TCP/UDP only
+	Command *string `json:"command"` // bytes to sent
+	Regexp  *string `json:"regexp,omitempty"`
+}
+
+// FailoverIcmpCheck for failover meta property with protocol=ICMP
+type FailoverIcmpCheck struct {
+	Protocol  string `json:"protocol"` // ICMP
+	Port      uint16 `json:"port"`
+	Frequency uint16 `json:"frequency"`
+	Timeout   uint16 `json:"timeout"`
+}
+
+// NewRRSetMetaMetaFailoverFromHttp for failover
+func NewRRSetMetaMetaFailoverFromHttp(failover FailoverHttpCheck) *RRSetMeta {
+	return &RRSetMeta{
+		"failover": failover,
+	}
+}
+
+// SetMetaFailoverHttp for failover
+func (r *RRSet) SetMetaFailoverHttp(check FailoverHttpCheck) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["failover"] = check
+	return r
+}
+
+// NewRRSetMetaMetaFailoverFromTcpUdp for TCP/DUP failover
+func NewRRSetMetaMetaFailoverFromTcpUdp(failover FailoverTcpUdpCheck) *RRSetMeta {
+	return &RRSetMeta{
+		"failover": failover,
+	}
+}
+
+// SetMetaFailoverTcpUdp for TCP/DUP failover
+func (r *RRSet) SetMetaFailoverTcpUdp(check FailoverTcpUdpCheck) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["failover"] = check
+	return r
+}
+
+// NewRRSetMetaMetaFailoverFromIcmp for ICMP failover
+func NewRRSetMetaMetaFailoverFromIcmp(failover FailoverIcmpCheck) *RRSetMeta {
+	return &RRSetMeta{
+		"failover": failover,
+	}
+}
+
+// SetMetaFailoverIcmp for ICMP failover
+func (r *RRSet) SetMetaFailoverIcmp(check FailoverIcmpCheck) *RRSet {
+	if r.Meta == nil {
+		r.Meta = RRSetMeta{}
+	}
+	r.Meta["failover"] = check
+	return r
 }
 
 type RRSets struct {
@@ -298,10 +512,12 @@ func (rm ResourceMeta) Valid() error {
 // NewResourceMetaIP for ip meta
 func NewResourceMetaIP(ips ...string) ResourceMeta {
 	for _, v := range ips {
-		ip := net.ParseIP(v)
-		if ip == nil {
-			// nolint: goerr113
-			return ResourceMeta{validErr: fmt.Errorf("wrong ip")}
+		_, _, err := net.ParseCIDR(v)
+		if err != nil {
+			if ip := net.ParseIP(v); ip == nil {
+				// nolint: goerr113
+				return ResourceMeta{validErr: fmt.Errorf("wrong ip: %v", err)}
+			}
 		}
 	}
 	return ResourceMeta{
@@ -378,6 +594,30 @@ func NewResourceMetaDefault() ResourceMeta {
 	return ResourceMeta{
 		name:  "default",
 		value: true,
+	}
+}
+
+// NewResourceMetaBackup for backup meta
+func NewResourceMetaBackup() ResourceMeta {
+	return ResourceMeta{
+		name:  "backup",
+		value: true,
+	}
+}
+
+// NewResourceMetaFallback for fallback meta
+func NewResourceMetaFallback() ResourceMeta {
+	return ResourceMeta{
+		name:  "fallback",
+		value: true,
+	}
+}
+
+// NewResourceMetaWeight for fallback meta
+func NewResourceMetaWeight(weight int) ResourceMeta {
+	return ResourceMeta{
+		name:  "weight",
+		value: weight,
 	}
 }
 
