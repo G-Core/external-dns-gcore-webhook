@@ -148,6 +148,18 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		}
 		requestLog(r).Debugf("requesting apply changes, create: %d , updateOld: %d, updateNew: %d, delete: %d",
 			len(changes.Create), len(changes.UpdateOld), len(changes.UpdateNew), len(changes.Delete))
+		if len(changes.Create) > 0 {
+			requestLog(r).Debug("detail for create: ", changes.Create)
+		}
+		if len(changes.UpdateOld) > 0 {
+			requestLog(r).Debug("detail for updateOld: ", changes.UpdateOld)
+		}
+		if len(changes.UpdateNew) > 0 {
+			requestLog(r).Debug("detail for updateNew: ", changes.UpdateNew)
+		}
+		if len(changes.Delete) > 0 {
+			requestLog(r).Debug("detail for delete: ", changes.Delete)
+		}
 		if err := p.ApplyChanges(ctx, &changes); err != nil {
 			w.Header().Set(contentTypeHeader, contentTypePlaintext)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -179,7 +191,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		log.Debugf("requesting adjust endpoints count: %d", len(pve))
 		pve, _ = p.AdjustEndpoints(pve)
 		out, _ := json.Marshal(&pve)
-		log.Debugf("return adjust endpoints response, resultEndpointCount: %d", len(pve))
+		log.Debugf("return adjust endpoints response, resultEndpointCount: %d: %s", len(pve), string(out))
 		w.Header().Set(contentTypeHeader, string(mediaTypeVersion1))
 		w.Header().Set(varyHeader, contentTypeHeader)
 		if _, writeError := fmt.Fprint(w, string(out)); writeError != nil {
