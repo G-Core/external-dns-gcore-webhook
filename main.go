@@ -120,6 +120,9 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 			return
 		}
 		requestLog(r).Debugf("returning records count: %d", len(records))
+		if len(records) > 0 {
+			requestLog(r).Debug("detail for records: ", records)
+		}
 		w.Header().Set(contentTypeHeader, string(mediaTypeVersion1))
 		w.Header().Set(varyHeader, contentTypeHeader)
 		err = json.NewEncoder(w).Encode(records)
