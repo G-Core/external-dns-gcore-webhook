@@ -89,6 +89,7 @@ func (p *DnsProvider) Records(rootCtx context.Context) ([]*endpoint.Endpoint, er
 		}
 	}
 	defer log.Debugf("%s: finishing get records: %d", ProviderName, len(result))
+	log.Debugf("%s: records: %v", ProviderName, result)
 	return result, nil
 }
 
