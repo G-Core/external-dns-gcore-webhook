@@ -40,7 +40,6 @@ type dnsManager interface {
 		values []gdns.ResourceRecord, ttl int, opts ...gdns.AddZoneOpt) error
 	ZonesWithRecords(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
 	Zones(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
-	AllZones(ctx context.Context) ([]gdns.Zone, error)
 	DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error
 }
 
