@@ -89,6 +89,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		w.WriteHeader(http.StatusOK)
 	})
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) { // negotiate
+		requestLog(r).Debug("GET /")
 		if err := acceptHeaderCheck(w, r); err != nil {
 			requestLog(r).WithField(logFieldError, err).Error("accept header check failed")
 			return
@@ -107,6 +108,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		}
 	})
 	r.Get("/records", func(w http.ResponseWriter, r *http.Request) {
+		requestLog(r).Debug("GET /records")
 		if err := acceptHeaderCheck(w, r); err != nil {
 			requestLog(r).WithField(logFieldError, err).Error("accept header check failed")
 			return
@@ -133,6 +135,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		}
 	})
 	r.Post("/records", func(w http.ResponseWriter, r *http.Request) {
+		requestLog(r).Debug("POST /")
 		if err := contentTypeHeaderCheck(w, r); err != nil {
 			requestLog(r).WithField(logFieldError, err).Error("content type header check failed")
 			return
@@ -171,6 +174,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	r.Post("/adjustendpoints", func(w http.ResponseWriter, r *http.Request) {
+		requestLog(r).Debug("POST /adjustendpoints")
 		if err := contentTypeHeaderCheck(w, r); err != nil {
 			log.Errorf("content type header check failed, request method: %s, request path: %s", r.Method, r.URL.Path)
 			return

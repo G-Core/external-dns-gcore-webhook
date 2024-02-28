@@ -97,7 +97,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 	if !changes.HasChanges() {
 		return nil
 	}
-	log.Infof("%s: starting apply changes createLen=%d, deleteLen=%d, updateOldLen=%d, updateNewLen=%d",
+	log.Infof("%s: ApplyChanges createLen=%d, deleteLen=%d, updateOldLen=%d, updateNewLen=%d",
 		ProviderName, len(changes.Create), len(changes.Delete), len(changes.UpdateOld), len(changes.UpdateNew))
 	ctx, cancel := p.ctxWithMyTimeout(rootCtx)
 	defer cancel()
@@ -135,8 +135,11 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			continue
 		}
 		gr2.Go(func() error {
-			return errSafeWrap(strings.Join(errMsg, "; "),
+			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.DeleteRRSetRecord(ctx, zone, d.DNSName, d.RecordType, recordValues...))
+			log.Debugf("%s ApplyChanges.updateNew,DeleteRRSetRecord: %s %s %v ERR=%s",
+				ProviderName, d.DNSName, d.RecordType, recordValues, err)
+			return err
 		})
 	}
 	// remove deleted records
@@ -161,8 +164,11 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			errMsg = append(errMsg, msg)
 		}
 		gr1.Go(func() error {
-			return errSafeWrap(strings.Join(errMsg, "; "),
+			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.DeleteRRSetRecord(ctx, zone, d.DNSName, d.RecordType, recordValues...))
+			log.Debugf("%s ApplyChanges.Delete,DeleteRRSetRecord: %s %s %v ERR=%s",
+				ProviderName, d.DNSName, d.RecordType, recordValues, err)
+			return err
 		})
 	}
 	// add created records
@@ -187,8 +193,11 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			errMsg = append(errMsg, msg)
 		}
 		gr1.Go(func() error {
-			return errSafeWrap(strings.Join(errMsg, "; "),
+			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.AddZoneRRSet(ctx, zone, c.DNSName, c.RecordType, recordValues, int(c.RecordTTL)))
+			log.Debugf("%s ApplyChanges.Create,AddZoneRRSet: %s %s %v ERR=%s",
+				ProviderName, c.DNSName, c.RecordType, recordValues, err)
+			return err
 		})
 	}
 	// wait preparing before send updates to records
@@ -222,8 +231,11 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			continue
 		}
 		gr1.Go(func() error {
-			return errSafeWrap(strings.Join(errMsg, "; "),
+			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.AddZoneRRSet(ctx, zone, c.DNSName, c.RecordType, recordValues, int(c.RecordTTL)))
+			log.Debugf("%s ApplyChanges.UpdateNew,AddZoneRRSet: %s %s %v ERR=%s",
+				ProviderName, c.DNSName, c.RecordType, recordValues)
+			return err
 		})
 	}
 	err = gr1.Wait()
@@ -236,17 +248,17 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 }
 
 func (p *DnsProvider) GetDomainFilter() endpoint.DomainFilter {
-	log.Debugf("%s: starting get domain filters", ProviderName)
+	log.Debugf("%s: GetDomainFilter", ProviderName)
 	zs, err := p.client.ZonesWithRecords(context.Background())
 	if err != nil {
-		log.Errorf("%s: get domain filters: %v", ProviderName, err)
+		log.Errorf("%s: ERROR GetDomainFilter: %v", ProviderName, err)
 		return endpoint.DomainFilter{}
 	}
 	domains := make([]string, 0)
 	for _, z := range zs {
 		domains = append(domains, z.Name, "."+z.Name)
 	}
-	defer log.Debugf("%s: finishing get domain filters with %+v", ProviderName, domains)
+	defer log.Debugf("%s: GetDomainFilter: %+v", ProviderName, domains)
 	return endpoint.NewDomainFilter(domains)
 }
 
