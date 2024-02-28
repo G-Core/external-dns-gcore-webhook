@@ -18,6 +18,7 @@ REGISTRY ?= ghcr.io
 IMAGE_NAME ?= G-Core/external-dns-gcore-webhook
 IMAGE_TAG ?= latest
 IMAGE = $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)
+VERSION = $(shell git describe --tag)
 
 ##@ General
 
@@ -61,8 +62,8 @@ clean: ## Clean the build directory
 
 .PHONY: build
 build: ## Build the binary
-	LOG_LEVEL=$(LOG_LEVEL) LOG_ENVIRONMENT=$(LOG_ENVIRONMENT) LOG_FORMAT=$(LOG_FORMAT) CGO_ENABLED=0 go build -mod \
-	vendor -o $(ARTIFACT_NAME) .
+	LOG_LEVEL=$(LOG_LEVEL) LOG_ENVIRONMENT=$(LOG_ENVIRONMENT) LOG_FORMAT=$(LOG_FORMAT) VERSION=$(VERSION) CGO_ENABLED=0 go build \
+ 	-mod vendor -ldflags "-X main.Version=${VERSION}" -o $(ARTIFACT_NAME) .
 
 .PHONY: run
 run:build ## Run the binary on local machine
