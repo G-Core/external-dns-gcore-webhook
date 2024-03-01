@@ -188,8 +188,9 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 				continue
 			}
 			log.Debug(msg)
-			recordValues = append(recordValues,
-				*(&gdns.ResourceRecord{}).SetContent(c.RecordType, content))
+			rr := gdns.ResourceRecord{Enabled: true}
+			rr.SetContent(c.RecordType, content)
+			recordValues = append(recordValues, rr)
 			errMsg = append(errMsg, msg)
 		}
 		gr1.Go(func() error {
@@ -223,8 +224,9 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 				continue
 			}
 			log.Debug(msg)
-			recordValues = append(recordValues,
-				*(&gdns.ResourceRecord{}).SetContent(c.RecordType, content))
+			rr := gdns.ResourceRecord{Enabled: true}
+			rr.SetContent(c.RecordType, content)
+			recordValues = append(recordValues, rr)
 			errMsg = append(errMsg, msg)
 		}
 		if len(recordValues) == 0 {
@@ -234,7 +236,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.AddZoneRRSet(ctx, zone, c.DNSName, c.RecordType, recordValues, int(c.RecordTTL)))
 			log.Debugf("%s ApplyChanges.UpdateNew,AddZoneRRSet: %s %s %v ERR=%s",
-				ProviderName, c.DNSName, c.RecordType, recordValues)
+				ProviderName, c.DNSName, c.RecordType, recordValues, err)
 			return err
 		})
 	}
