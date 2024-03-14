@@ -7,6 +7,8 @@ ExternalDNS is a Kubernetes add-on for automatically managing Domain Name System
 
 To use ExternalDNS with Gcore you need to get API token from https://accounts.gcore.com/profile/api-tokens.
 
+Note as per `v0.1.0` TXT record will no longer be created as workaround for wildcard record.
+
 ## Deployment in kubernetes:
 
 secret.yaml
