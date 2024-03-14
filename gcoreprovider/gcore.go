@@ -174,7 +174,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 	for _, c := range changes.Create {
 		c := c
 		zone := extractZone(c.DNSName)
-		if zone == "" || c.RecordType == "TXT" {
+		if zone == "" {
 			continue
 		}
 		recordValues := make([]gdns.ResourceRecord, 0)
@@ -267,7 +267,8 @@ func (p *DnsProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endpoi
 	adjusted := make([]*endpoint.Endpoint, 0, len(endpoints))
 	for _, e := range endpoints {
 		e := e
-		if e.RecordType != "TXT" {
+		if e.RecordType != "TXT" || // normal A/AAAA
+			strings.Index(e.DNSName, `*`) <= 0 { // as long as * not in the middle
 			adjusted = append(adjusted, e)
 		}
 	}
