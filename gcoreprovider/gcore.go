@@ -39,7 +39,6 @@ type dnsManager interface {
 		zone, recordName, recordType string,
 		values []gdns.ResourceRecord, ttl int, opts ...gdns.AddZoneOpt) error
 	ZonesWithRecords(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
-	Zones(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
 	DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error
 }
 
@@ -137,7 +136,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		gr2.Go(func() error {
 			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.DeleteRRSetRecord(ctx, zone, d.DNSName, d.RecordType, recordValues...))
-			log.Debugf("%s ApplyChanges.updateNew,DeleteRRSetRecord: %s %s %v ERR=%s",
+			log.Debugf("%s ApplyChanges.updateNew,DeleteRRSetRecord: %s %s %v ERR=%v",
 				ProviderName, d.DNSName, d.RecordType, recordValues, err)
 			return err
 		})
@@ -166,7 +165,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		gr1.Go(func() error {
 			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.DeleteRRSetRecord(ctx, zone, d.DNSName, d.RecordType, recordValues...))
-			log.Debugf("%s ApplyChanges.Delete,DeleteRRSetRecord: %s %s %v ERR=%s",
+			log.Debugf("%s ApplyChanges.Delete,DeleteRRSetRecord: %s %s %v ERR=%v",
 				ProviderName, d.DNSName, d.RecordType, recordValues, err)
 			return err
 		})
@@ -175,7 +174,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 	for _, c := range changes.Create {
 		c := c
 		zone := extractZone(c.DNSName)
-		if zone == "" {
+		if zone == "" || c.RecordType == "TXT" {
 			continue
 		}
 		recordValues := make([]gdns.ResourceRecord, 0)
@@ -196,7 +195,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		gr1.Go(func() error {
 			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.AddZoneRRSet(ctx, zone, c.DNSName, c.RecordType, recordValues, int(c.RecordTTL)))
-			log.Debugf("%s ApplyChanges.Create,AddZoneRRSet: %s %s %v ERR=%s",
+			log.Debugf("%s ApplyChanges.Create,AddZoneRRSet: %s %s %v ERR=%v",
 				ProviderName, c.DNSName, c.RecordType, recordValues, err)
 			return err
 		})
@@ -235,7 +234,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		gr1.Go(func() error {
 			err := errSafeWrap(strings.Join(errMsg, "; "),
 				p.client.AddZoneRRSet(ctx, zone, c.DNSName, c.RecordType, recordValues, int(c.RecordTTL)))
-			log.Debugf("%s ApplyChanges.UpdateNew,AddZoneRRSet: %s %s %v ERR=%s",
+			log.Debugf("%s ApplyChanges.UpdateNew,AddZoneRRSet: %s %s %v ERR=%v",
 				ProviderName, c.DNSName, c.RecordType, recordValues, err)
 			return err
 		})
@@ -265,7 +264,15 @@ func (p *DnsProvider) GetDomainFilter() endpoint.DomainFilter {
 }
 
 func (p *DnsProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endpoint.Endpoint, error) {
-	return endpoints, nil
+	adjusted := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, e := range endpoints {
+		e := e
+		if e.RecordType != "TXT" {
+			adjusted = append(adjusted, e)
+		}
+	}
+	return adjusted, nil
+	//return endpoints, nil
 }
 
 func (p *DnsProvider) PropertyValuesEqual(_ string, previous string, current string) bool {
