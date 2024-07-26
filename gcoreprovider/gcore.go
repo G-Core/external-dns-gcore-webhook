@@ -174,7 +174,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 	for _, c := range changes.Create {
 		c := c
 		zone := extractZone(c.DNSName)
-		if zone == "" {
+		if zone == "" || (c.RecordType == "TXT" && strings.Index(c.DNSName, `*`) > 0) {
 			continue
 		}
 		recordValues := make([]gdns.ResourceRecord, 0)
