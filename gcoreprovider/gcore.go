@@ -16,6 +16,7 @@ package gcoreprovider
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 
 const (
 	ProviderName = "gcore"
+	EnvAPIURL    = "GCORE_API_URL"
 	EnvAPIToken  = "GCORE_PERMANENT_API_TOKEN"
 	logDryRun    = "[DryRun] "
 	maxTimeout   = 60 * time.Second
@@ -48,7 +50,22 @@ type DnsProvider struct {
 	dryRun bool
 }
 
-func NewProvider(domainFilter endpoint.DomainFilter, apiKey string, dryRun bool) (*DnsProvider, error) {
+func setClientBaseURL(client interface{}, apiUrl string) (*gdns.Client, error) {
+	c, ok := client.(*gdns.Client)
+	if !ok {
+		return nil, fmt.Errorf("type assertion to *gdns.Client failed")
+	}
+
+	var err error
+	c.BaseURL, err = url.Parse(apiUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed parsing %s url: %w", apiUrl, err)
+	}
+
+	return c, nil
+}
+
+func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiKey string, dryRun bool) (*DnsProvider, error) {
 	log.Infof("%s: starting init provider: filters=%+v , dryRun=%v",
 		ProviderName, domainFilter.Filters, dryRun)
 	defer log.Infof("%s: finishing init provider", ProviderName)
@@ -58,6 +75,14 @@ func NewProvider(domainFilter endpoint.DomainFilter, apiKey string, dryRun bool)
 	p := &DnsProvider{
 		client: gdns.NewClient(gdns.PermanentAPIKeyAuth(apiKey)),
 		dryRun: dryRun,
+	}
+
+	if apiUrl != "" {
+		newClient, err := setClientBaseURL(p.client, apiUrl)
+		if err != nil {
+			return nil, err
+		}
+		p.client = newClient
 	}
 
 	return p, nil
@@ -379,5 +404,5 @@ func unexistingTargets(existing *endpoint.Endpoint,
 type EnvError string
 
 func (e EnvError) Error() string {
-	return fmt.Sprintf("invalid evirement var: %s", string(e))
+	return fmt.Sprintf("invalid environment var: %s", string(e))
 }
