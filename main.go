@@ -36,6 +36,7 @@ const banner = `
 
 var (
 	Version    = "v0.0.1"
+	ApiUrl     = ``
 	ApiKey     = ``
 	ServerHost = ``
 	ServerPort = `8080`
@@ -45,6 +46,7 @@ var (
 func main() {
 	log.SetLevel(log.DebugLevel)
 	fmt.Printf(banner, Version)
+	ApiUrl = os.Getenv(gcoreprovider.EnvAPIURL)
 	ApiKey = os.Getenv(gcoreprovider.EnvAPIToken)
 	ServerHost = os.Getenv(`SERVER_HOST`)
 	ServerPort = os.Getenv(`SERVER_PORT`)
@@ -53,7 +55,7 @@ func main() {
 	}
 	DryRun = os.Getenv(`DRY_RUN`) == `true`
 
-	provider, err := gcoreprovider.NewProvider(endpoint.DomainFilter{}, ApiKey, DryRun)
+	provider, err := gcoreprovider.NewProvider(endpoint.DomainFilter{}, ApiUrl, ApiKey, DryRun)
 	if err != nil {
 		log.Fatalf("Failed to initialize DNS provider: %v", err)
 	}
