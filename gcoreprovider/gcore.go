@@ -89,31 +89,36 @@ func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiKey string, dryR
 }
 
 func (p *DnsProvider) Records(rootCtx context.Context) ([]*endpoint.Endpoint, error) {
-	log.Infof("%s: starting get records", ProviderName)
+	log.Infof("%s: Records: starting get records", ProviderName)
 	filters := make([]func(*gdns.ZonesFilter), 0, 1)
 	if len(p.GetDomainFilter().Filters) > 0 {
 		filters = append(filters, func(filter *gdns.ZonesFilter) {
 			filter.Names = p.GetDomainFilter().Filters
 		})
 	}
+	log.Debugf("%s: Records: filters: len=%d %v", ProviderName, len(filters), filters)
 	ctx, cancel := p.ctxWithMyTimeout(rootCtx)
 	defer cancel()
 	zs, err := p.client.ZonesWithRecords(ctx, filters...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: records: %w", ProviderName, err)
 	}
+	zoneCount := map[string]int{}
 	result := make([]*endpoint.Endpoint, 0)
+	skipped := 0
 	for _, z := range zs {
+		zoneCount[z.Name] = len(z.Records)
 		for _, r := range z.Records {
 			if !provider.SupportedRecordType(r.Type) {
+				skipped++
 				continue
 			}
 			result = append(result,
 				endpoint.NewEndpointWithTTL(r.Name, r.Type, endpoint.TTL(r.TTL), r.ShortAnswers...))
 		}
 	}
-	defer log.Debugf("%s: finishing get records: %d", ProviderName, len(result))
-	log.Debugf("%s: records: %v", ProviderName, result)
+	log.Debugf("%s: Records: ZonesWithRecords: zoneCount=%d %v", ProviderName, len(zoneCount), zoneCount)
+	defer log.Debugf("%s: Records: finishing get records: skipped=%d result=%d: %v", ProviderName, skipped, len(result), result)
 	return result, nil
 }
 
