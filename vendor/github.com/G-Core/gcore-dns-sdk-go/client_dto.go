@@ -659,6 +659,20 @@ type ZoneRecord struct {
 	ShortAnswers []string `json:"short_answers"`
 }
 
+// DNSSecDS dto describe DS records that returned from API on DNSSec requests
+type DNSSecDS struct {
+	Algorithm       string `json:"algorithm"`
+	Digest          string `json:"digest"`
+	DigestAlgorithm string `json:"digest_algorithm"`
+	DigestType      string `json:"digest_type"`
+	Ds              string `json:"ds"`
+	Flags           int    `json:"flags"`
+	KeyTag          int    `json:"key_tag"`
+	KeyType         string `json:"key_type"`
+	PublicKey       string `json:"public_key"`
+	Uuid            string `json:"uuid"`
+}
+
 // APIError customization for API calls
 type APIError struct {
 	StatusCode int    `json:"-"`

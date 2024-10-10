@@ -1,4 +1,4 @@
-# github.com/G-Core/gcore-dns-sdk-go v0.2.8-0.20240228095703-bbc269a7d1f8
+# github.com/G-Core/gcore-dns-sdk-go v0.2.9
 ## explicit; go 1.18
 github.com/G-Core/gcore-dns-sdk-go
 # github.com/aws/aws-sdk-go v1.44.311
@@ -69,7 +69,7 @@ golang.org/x/net/http/httpguts
 golang.org/x/net/http2
 golang.org/x/net/http2/hpack
 golang.org/x/net/idna
-# golang.org/x/sync v0.6.0
+# golang.org/x/sync v0.8.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
 # golang.org/x/sys v0.13.0

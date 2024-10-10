@@ -40,7 +40,7 @@ type dnsManager interface {
 	AddZoneRRSet(ctx context.Context,
 		zone, recordName, recordType string,
 		values []gdns.ResourceRecord, ttl int, opts ...gdns.AddZoneOpt) error
-	ZonesWithRecords(ctx context.Context, filters ...func(zone *gdns.ZonesFilter)) ([]gdns.Zone, error)
+	AllZonesWithRecords(ctx context.Context, nameFilters []string) ([]gdns.Zone, error)
 	DeleteRRSetRecord(ctx context.Context, zone, name, recordType string, contents ...string) error
 }
 
@@ -90,16 +90,14 @@ func NewProvider(domainFilter endpoint.DomainFilter, apiUrl, apiKey string, dryR
 
 func (p *DnsProvider) Records(rootCtx context.Context) ([]*endpoint.Endpoint, error) {
 	log.Infof("%s: Records: starting get records", ProviderName)
-	filters := make([]func(*gdns.ZonesFilter), 0, 1)
-	if len(p.GetDomainFilter().Filters) > 0 {
-		filters = append(filters, func(filter *gdns.ZonesFilter) {
-			filter.Names = p.GetDomainFilter().Filters
-		})
+	filters := p.GetDomainFilter().Filters
+	if len(filters) == 0 {
+		filters = nil
 	}
 	log.Debugf("%s: Records: filters: len=%d %v", ProviderName, len(filters), filters)
 	ctx, cancel := p.ctxWithMyTimeout(rootCtx)
 	defer cancel()
-	zs, err := p.client.ZonesWithRecords(ctx, filters...)
+	zs, err := p.client.AllZonesWithRecords(ctx, filters)
 	if err != nil {
 		return nil, fmt.Errorf("%s: records: %w", ProviderName, err)
 	}
@@ -280,7 +278,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 
 func (p *DnsProvider) GetDomainFilter() endpoint.DomainFilter {
 	log.Debugf("%s: GetDomainFilter", ProviderName)
-	zs, err := p.client.ZonesWithRecords(context.Background())
+	zs, err := p.client.AllZonesWithRecords(context.Background(), nil)
 	if err != nil {
 		log.Errorf("%s: ERROR GetDomainFilter: %v", ProviderName, err)
 		return endpoint.DomainFilter{}
