@@ -6,7 +6,7 @@ require (
 	github.com/G-Core/gcore-dns-sdk-go v0.2.9
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.10.0
 	sigs.k8s.io/external-dns v0.14.0
 )
 
@@ -22,7 +22,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apimachinery v0.27.4 // indirect
