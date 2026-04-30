@@ -142,6 +142,111 @@ func Test_dnsProvider_Records(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name: "txt heritage wrapped on read",
+			fields: fields{
+				domainFilter: endpoint.DomainFilter{},
+				client: dnsManagerMock{
+					zonesWithRecords: func(ctx context.Context,
+						filters []string) ([]gdns.Zone, error) {
+						return []gdns.Zone{
+							{
+								Name: "example.com",
+								Records: []gdns.ZoneRecord{
+									{
+										Name:         "test.example.com",
+										Type:         "TXT",
+										TTL:          10,
+										ShortAnswers: []string{"heritage=external-dns,external-dns/owner=default"},
+									},
+								},
+							},
+						}, nil
+					},
+				},
+				dryRun: false,
+			},
+			args: args{
+				ctx: context.Background(),
+			},
+			want: []endpoint.Endpoint{
+				*endpoint.NewEndpointWithTTL(
+					"test.example.com", "TXT", endpoint.TTL(10),
+					"\"heritage=external-dns,external-dns/owner=default\""),
+			},
+			wantErr: false,
+		},
+		{
+			name: "txt non-heritage untouched on read",
+			fields: fields{
+				domainFilter: endpoint.DomainFilter{},
+				client: dnsManagerMock{
+					zonesWithRecords: func(ctx context.Context,
+						filters []string) ([]gdns.Zone, error) {
+						return []gdns.Zone{
+							{
+								Name: "example.com",
+								Records: []gdns.ZoneRecord{
+									{
+										Name:         "test.example.com",
+										Type:         "TXT",
+										TTL:          10,
+										ShortAnswers: []string{"v=spf1 ~all"},
+									},
+								},
+							},
+						}, nil
+					},
+				},
+				dryRun: false,
+			},
+			args: args{
+				ctx: context.Background(),
+			},
+			want: []endpoint.Endpoint{
+				*endpoint.NewEndpointWithTTL(
+					"test.example.com", "TXT", endpoint.TTL(10), "v=spf1 ~all"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "txt heritage multiple values wrapped",
+			fields: fields{
+				domainFilter: endpoint.DomainFilter{},
+				client: dnsManagerMock{
+					zonesWithRecords: func(ctx context.Context,
+						filters []string) ([]gdns.Zone, error) {
+						return []gdns.Zone{
+							{
+								Name: "example.com",
+								Records: []gdns.ZoneRecord{
+									{
+										Name: "test.example.com",
+										Type: "TXT",
+										TTL:  10,
+										ShortAnswers: []string{
+											"heritage=external-dns,external-dns/owner=a",
+											"heritage=external-dns,external-dns/owner=b",
+										},
+									},
+								},
+							},
+						}, nil
+					},
+				},
+				dryRun: false,
+			},
+			args: args{
+				ctx: context.Background(),
+			},
+			want: []endpoint.Endpoint{
+				*endpoint.NewEndpointWithTTL(
+					"test.example.com", "TXT", endpoint.TTL(10),
+					"\"heritage=external-dns,external-dns/owner=a\"",
+					"\"heritage=external-dns,external-dns/owner=b\""),
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -391,7 +496,7 @@ func Test_dnsProvider_ApplyChanges(t *testing.T) {
 							ttl == 10 &&
 							recordName == "my.test.com" &&
 							recordType == "TXT" &&
-							values[0].Content[0] == "\"heritage=external-dns,external-dns/owner=default\"" {
+							values[0].Content[0] == "heritage=external-dns,external-dns/owner=default" {
 							return nil
 						}
 						return fmt.Errorf("addZoneRRSet wrong params: zone=%s name=%s type=%s values=%+v ttl=%d",
@@ -406,6 +511,84 @@ func Test_dnsProvider_ApplyChanges(t *testing.T) {
 					Create: []*endpoint.Endpoint{
 						endpoint.NewEndpointWithTTL("my.test.com", "TXT", 10,
 							"\"heritage=external-dns,external-dns/owner=default\""),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "delete TXT heritage unquoted",
+			fields: fields{
+				domainFilter: endpoint.DomainFilter{},
+				client: dnsManagerMock{
+					zonesWithRecords: func(ctx context.Context,
+						filters []string) ([]gdns.Zone, error) {
+						return []gdns.Zone{{Name: "test.com"}}, nil
+					},
+					deleteRRSetRecord: func(ctx context.Context, zone, name, recordType string, contents ...string) error {
+						if zone == "test.com" && name == "my.test.com" && recordType == "TXT" &&
+							len(contents) == 1 &&
+							contents[0] == "heritage=external-dns,external-dns/owner=default" {
+							return nil
+						}
+						return fmt.Errorf("deleteRRSetRecord wrong params: zone=%s name=%s type=%s contents=%+v",
+							zone, name, recordType, contents)
+					},
+				},
+				dryRun: false,
+			},
+			args: args{
+				ctx: context.Background(),
+				changes: &plan.Changes{
+					Delete: []*endpoint.Endpoint{
+						endpoint.NewEndpointWithTTL("my.test.com", "TXT", 10,
+							"\"heritage=external-dns,external-dns/owner=default\""),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "update TXT heritage round-trip",
+			fields: fields{
+				domainFilter: endpoint.DomainFilter{},
+				client: dnsManagerMock{
+					zonesWithRecords: func(ctx context.Context,
+						filters []string) ([]gdns.Zone, error) {
+						return []gdns.Zone{{Name: "test.com"}}, nil
+					},
+					deleteRRSetRecord: func(ctx context.Context, zone, name, recordType string, contents ...string) error {
+						if zone == "test.com" && name == "my.test.com" && recordType == "TXT" &&
+							len(contents) == 1 &&
+							contents[0] == "heritage=external-dns,external-dns/owner=default" {
+							return nil
+						}
+						return fmt.Errorf("deleteRRSetRecord wrong params: zone=%s name=%s type=%s contents=%+v",
+							zone, name, recordType, contents)
+					},
+					addZoneRRSet: func(ctx context.Context, zone, recordName, recordType string, values []gdns.ResourceRecord, ttl int) error {
+						if zone == "test.com" && ttl == 10 &&
+							recordName == "my.test.com" && recordType == "TXT" &&
+							len(values) == 1 &&
+							values[0].Content[0] == "heritage=external-dns,external-dns/owner=new" {
+							return nil
+						}
+						return fmt.Errorf("addZoneRRSet wrong params: zone=%s name=%s type=%s values=%+v ttl=%d",
+							zone, recordName, recordType, values, ttl)
+					},
+				},
+				dryRun: false,
+			},
+			args: args{
+				ctx: context.Background(),
+				changes: &plan.Changes{
+					UpdateOld: []*endpoint.Endpoint{
+						endpoint.NewEndpointWithTTL("my.test.com", "TXT", 10,
+							"\"heritage=external-dns,external-dns/owner=default\""),
+					},
+					UpdateNew: []*endpoint.Endpoint{
+						endpoint.NewEndpointWithTTL("my.test.com", "TXT", 10,
+							"\"heritage=external-dns,external-dns/owner=new\""),
 					},
 				},
 			},
@@ -611,6 +794,98 @@ func TestNonExistingTargets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := unexistingTargets(tt.args.existing, tt.args.toCompare, tt.args.diffFromExisting); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("unexistingTargets() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_escapeOwnershipTXTRecordValue(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "heritage wrapped",
+			in:   "heritage=external-dns,external-dns/owner=default",
+			want: "\"heritage=external-dns,external-dns/owner=default\"",
+		},
+		{
+			name: "non-heritage TXT untouched",
+			in:   "v=spf1 include:_spf.example.com ~all",
+			want: "v=spf1 include:_spf.example.com ~all",
+		},
+		{
+			name: "empty untouched",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "already-quoted heritage stays single-quoted",
+			in:   "\"heritage=foo\"",
+			want: "\"heritage=foo\"",
+		},
+		{
+			name: "heritage not at start untouched",
+			in:   "x heritage=foo",
+			want: "x heritage=foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := escapeOwnershipTXTRecordValue(tt.in); got != tt.want {
+				t.Errorf("escapeOwnershipTXTRecordValue(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_unescapeOwnershipTXTRecordValue(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "quoted heritage unwrapped",
+			in:   "\"heritage=external-dns,external-dns/owner=default\"",
+			want: "heritage=external-dns,external-dns/owner=default",
+		},
+		{
+			name: "unquoted heritage untouched",
+			in:   "heritage=external-dns,external-dns/owner=default",
+			want: "heritage=external-dns,external-dns/owner=default",
+		},
+		{
+			name: "quoted non-heritage untouched",
+			in:   "\"v=spf1 ~all\"",
+			want: "\"v=spf1 ~all\"",
+		},
+		{
+			name: "empty untouched",
+			in:   "",
+			want: "",
+		},
+		{
+			name: "lone quote untouched",
+			in:   "\"",
+			want: "\"",
+		},
+		{
+			name: "opening quote only untouched",
+			in:   "\"heritage=foo",
+			want: "\"heritage=foo",
+		},
+		{
+			name: "closing quote only untouched",
+			in:   "heritage=foo\"",
+			want: "heritage=foo\"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := unescapeOwnershipTXTRecordValue(tt.in); got != tt.want {
+				t.Errorf("unescapeOwnershipTXTRecordValue(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}

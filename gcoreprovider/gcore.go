@@ -111,6 +111,11 @@ func (p *DnsProvider) Records(rootCtx context.Context) ([]*endpoint.Endpoint, er
 				skipped++
 				continue
 			}
+			if r.Type == endpoint.RecordTypeTXT {
+				for i, answer := range r.ShortAnswers {
+					r.ShortAnswers[i] = escapeOwnershipTXTRecordValue(answer)
+				}
+			}
 			result = append(result,
 				endpoint.NewEndpointWithTTL(r.Name, r.Type, endpoint.TTL(r.TTL), r.ShortAnswers...))
 		}
@@ -155,7 +160,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 				continue
 			}
 			log.Debug(msg)
-			recordValues = append(recordValues, content)
+			recordValues = append(recordValues, unescapeOwnershipTXTRecordValue(content))
 			errMsg = append(errMsg, msg)
 		}
 		if len(recordValues) == 0 {
@@ -187,7 +192,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 				continue
 			}
 			log.Debug(msg)
-			recordValues = append(recordValues, content)
+			recordValues = append(recordValues, unescapeOwnershipTXTRecordValue(content))
 			errMsg = append(errMsg, msg)
 		}
 		gr1.Go(func() error {
@@ -216,7 +221,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			}
 			log.Debug(msg)
 			rr := gdns.ResourceRecord{Enabled: true}
-			rr.SetContent(c.RecordType, content)
+			rr.SetContent(c.RecordType, unescapeOwnershipTXTRecordValue(content))
 			recordValues = append(recordValues, rr)
 			errMsg = append(errMsg, msg)
 		}
@@ -252,7 +257,7 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 			}
 			log.Debug(msg)
 			rr := gdns.ResourceRecord{Enabled: true}
-			rr.SetContent(c.RecordType, content)
+			rr.SetContent(c.RecordType, unescapeOwnershipTXTRecordValue(content))
 			recordValues = append(recordValues, rr)
 			errMsg = append(errMsg, msg)
 		}
@@ -399,4 +404,18 @@ type EnvError string
 
 func (e EnvError) Error() string {
 	return fmt.Sprintf("invalid environment var: %s", string(e))
+}
+
+func escapeOwnershipTXTRecordValue(value string) string {
+	if strings.HasPrefix(value, "heritage=") {
+		return fmt.Sprintf("\"%s\"", value)
+	}
+	return value
+}
+
+func unescapeOwnershipTXTRecordValue(value string) string {
+	if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") && strings.HasPrefix(value, "\"heritage=") {
+		return value[1 : len(value)-1]
+	}
+	return value
 }
