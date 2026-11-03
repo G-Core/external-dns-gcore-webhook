@@ -87,24 +87,34 @@ func resolveListenAddress() (string, error) {
 	if port == `` {
 		port = defaultServerPort
 	}
-	return listenAddress(host, port)
+	if err := validateListenHost(host); err != nil {
+		return ``, err
+	}
+	return buildListenAddress(host, port), nil
 }
 
-// listenAddress validates the host and builds the TCP listen address.
-// The webhook control API is unauthenticated, so a non-loopback host is refused
-// unless ALLOW_REMOTE_WEBHOOK is set to a true value (strconv.ParseBool).
-func listenAddress(host, port string) (string, error) {
-	if !isLoopbackHost(host) {
-		allowRemote, _ := strconv.ParseBool(os.Getenv(envAllowRemote))
-		if !allowRemote {
-			return ``, fmt.Errorf(
-				"refusing to listen on non-loopback host %q: the webhook API is unauthenticated, set %s=true to override",
-				host, envAllowRemote)
-		}
-		log.Warnf("listening on non-loopback host %q with %s=true, the webhook API is reachable from the network",
+// validateListenHost enforces the binding policy for the (unauthenticated) webhook
+// control API: a non-loopback host is refused unless ALLOW_REMOTE_WEBHOOK is set
+// to a true value (strconv.ParseBool). An explicitly allowed non-loopback bind
+// logs a warning because the API is reachable from the network.
+func validateListenHost(host string) error {
+	if isLoopbackHost(host) {
+		return nil
+	}
+	allowRemote, _ := strconv.ParseBool(os.Getenv(envAllowRemote))
+	if !allowRemote {
+		return fmt.Errorf(
+			"refusing to listen on non-loopback host %q: the webhook API is unauthenticated, set %s=true to override",
 			host, envAllowRemote)
 	}
-	return net.JoinHostPort(host, port), nil
+	log.Warnf("listening on non-loopback host %q with %s=true, the webhook API is reachable from the network",
+		host, envAllowRemote)
+	return nil
+}
+
+// buildListenAddress builds the TCP listen address, bracketing IPv6 hosts.
+func buildListenAddress(host, port string) string {
+	return net.JoinHostPort(host, port)
 }
 
 // isLoopbackHost reports whether host is the local loopback interface. It accepts

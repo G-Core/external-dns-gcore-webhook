@@ -43,23 +43,21 @@ func TestIsLoopbackHost(t *testing.T) {
 	}
 }
 
-func TestListenAddress(t *testing.T) {
+func TestValidateListenHost(t *testing.T) {
 	tests := []struct {
 		name       string
 		host       string
-		port       string
 		allowValue string
-		want       string
 		wantErr    bool
 	}{
-		{name: "loopback ipv4", host: "127.0.0.1", port: "8888", allowValue: "", want: "127.0.0.1:8888"},
-		{name: "loopback ipv6", host: "::1", port: "8888", allowValue: "", want: "[::1]:8888"},
-		{name: "localhost name", host: "localhost", port: "8888", allowValue: "", want: "localhost:8888"},
-		{name: "wildcard refused", host: "0.0.0.0", port: "8888", allowValue: "", wantErr: true},
-		{name: "pod ip refused", host: "10.244.0.7", port: "8888", allowValue: "", wantErr: true},
-		{name: "wildcard allowed with opt-in true", host: "0.0.0.0", port: "8888", allowValue: "true", want: "0.0.0.0:8888"},
-		{name: "wildcard allowed with opt-in 1", host: "0.0.0.0", port: "8888", allowValue: "1", want: "0.0.0.0:8888"},
-		{name: "wildcard refused with opt-in false", host: "0.0.0.0", port: "8888", allowValue: "false", wantErr: true},
+		{name: "loopback ipv4", host: "127.0.0.1", allowValue: ""},
+		{name: "loopback ipv6", host: "::1", allowValue: ""},
+		{name: "localhost name", host: "localhost", allowValue: ""},
+		{name: "wildcard refused", host: "0.0.0.0", allowValue: "", wantErr: true},
+		{name: "pod ip refused", host: "10.244.0.7", allowValue: "", wantErr: true},
+		{name: "wildcard allowed with opt-in true", host: "0.0.0.0", allowValue: "true"},
+		{name: "wildcard allowed with opt-in 1", host: "0.0.0.0", allowValue: "1"},
+		{name: "wildcard refused with opt-in false", host: "0.0.0.0", allowValue: "false", wantErr: true},
 	}
 
 	for _, tc := range tests {
@@ -67,18 +65,37 @@ func TestListenAddress(t *testing.T) {
 			// Set the opt-in for every case so the test does not depend on the
 			// ambient environment of the machine running it.
 			t.Setenv(envAllowRemote, tc.allowValue)
-			got, err := listenAddress(tc.host, tc.port)
+			err := validateListenHost(tc.host)
 			if tc.wantErr {
 				if err == nil {
-					t.Fatalf("listenAddress(%q, %q) expected error, got addr %q", tc.host, tc.port, got)
+					t.Fatalf("validateListenHost(%q) expected error", tc.host)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("listenAddress(%q, %q) unexpected error: %v", tc.host, tc.port, err)
+				t.Fatalf("validateListenHost(%q) unexpected error: %v", tc.host, err)
 			}
-			if got != tc.want {
-				t.Errorf("listenAddress(%q, %q) = %q, want %q", tc.host, tc.port, got, tc.want)
+		})
+	}
+}
+
+func TestBuildListenAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		port string
+		want string
+	}{
+		{name: "ipv4 loopback", host: "127.0.0.1", port: "8888", want: "127.0.0.1:8888"},
+		{name: "ipv6 loopback", host: "::1", port: "8888", want: "[::1]:8888"},
+		{name: "localhost name", host: "localhost", port: "8888", want: "localhost:8888"},
+		{name: "wildcard", host: "0.0.0.0", port: "8888", want: "0.0.0.0:8888"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := buildListenAddress(tc.host, tc.port); got != tc.want {
+				t.Errorf("buildListenAddress(%q, %q) = %q, want %q", tc.host, tc.port, got, tc.want)
 			}
 		})
 	}
