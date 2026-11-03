@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -49,6 +50,7 @@ const (
 	defaultServerPort = `8888`
 	envServerHost     = `SERVER_HOST`
 	envServerPort     = `SERVER_PORT`
+	envDryRun         = `DRY_RUN`
 	// envAllowRemote enables listening on a non-loopback address; without it a
 	// non-loopback SERVER_HOST is rejected because the control API has no authentication.
 	envAllowRemote = `ALLOW_REMOTE_WEBHOOK`
@@ -59,7 +61,7 @@ func main() {
 	fmt.Printf(banner, Version)
 	ApiUrl = os.Getenv(gcoreprovider.EnvAPIURL)
 	ApiKey = os.Getenv(gcoreprovider.EnvAPIToken)
-	DryRun = os.Getenv(`DRY_RUN`) == `true`
+	DryRun, _ = strconv.ParseBool(os.Getenv(envDryRun))
 
 	addr, err := resolveListenAddress()
 	if err != nil {
@@ -90,10 +92,11 @@ func resolveListenAddress() (string, error) {
 
 // listenAddress validates the host and builds the TCP listen address.
 // The webhook control API is unauthenticated, so a non-loopback host is refused
-// unless ALLOW_REMOTE_WEBHOOK=true is set explicitly.
+// unless ALLOW_REMOTE_WEBHOOK is set to a true value (strconv.ParseBool).
 func listenAddress(host, port string) (string, error) {
 	if !isLoopbackHost(host) {
-		if os.Getenv(envAllowRemote) != `true` {
+		allowRemote, _ := strconv.ParseBool(os.Getenv(envAllowRemote))
+		if !allowRemote {
 			return ``, fmt.Errorf(
 				"refusing to listen on non-loopback host %q: the webhook API is unauthenticated, set %s=true to override",
 				host, envAllowRemote)
@@ -104,7 +107,10 @@ func listenAddress(host, port string) (string, error) {
 	return net.JoinHostPort(host, port), nil
 }
 
-// isLoopbackHost reports whether host resolves to the local loopback interface.
+// isLoopbackHost reports whether host is the local loopback interface. It accepts
+// the name "localhost" and loopback IP literals only; other hostnames are treated
+// as non-loopback even if they happen to resolve to a loopback address, so the
+// check fails closed without depending on DNS.
 func isLoopbackHost(host string) bool {
 	if host == `localhost` {
 		return true
@@ -308,7 +314,7 @@ func headerCheck(isContentType bool, w http.ResponseWriter, r *http.Request) err
 		} else {
 			msg += "an accept header"
 		}
-		err := fmt.Errorf(msg)
+		err := errors.New(msg)
 		_, writeErr := fmt.Fprint(w, err.Error())
 		if writeErr != nil {
 			requestLog(r).WithField(logFieldError, writeErr).Fatalf("error writing error message to response writer")

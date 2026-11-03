@@ -1,3 +1,16 @@
+/*
+Copyright 2017 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -32,26 +45,28 @@ func TestIsLoopbackHost(t *testing.T) {
 
 func TestListenAddress(t *testing.T) {
 	tests := []struct {
-		name    string
-		host    string
-		port    string
-		allow   bool
-		want    string
-		wantErr bool
+		name       string
+		host       string
+		port       string
+		allowValue string
+		want       string
+		wantErr    bool
 	}{
-		{name: "loopback ipv4", host: "127.0.0.1", port: "8888", want: "127.0.0.1:8888"},
-		{name: "loopback ipv6", host: "::1", port: "8888", want: "[::1]:8888"},
-		{name: "localhost name", host: "localhost", port: "8888", want: "localhost:8888"},
-		{name: "wildcard refused", host: "0.0.0.0", port: "8888", wantErr: true},
-		{name: "pod ip refused", host: "10.244.0.7", port: "8888", wantErr: true},
-		{name: "wildcard allowed with opt-in", host: "0.0.0.0", port: "8888", allow: true, want: "0.0.0.0:8888"},
+		{name: "loopback ipv4", host: "127.0.0.1", port: "8888", allowValue: "", want: "127.0.0.1:8888"},
+		{name: "loopback ipv6", host: "::1", port: "8888", allowValue: "", want: "[::1]:8888"},
+		{name: "localhost name", host: "localhost", port: "8888", allowValue: "", want: "localhost:8888"},
+		{name: "wildcard refused", host: "0.0.0.0", port: "8888", allowValue: "", wantErr: true},
+		{name: "pod ip refused", host: "10.244.0.7", port: "8888", allowValue: "", wantErr: true},
+		{name: "wildcard allowed with opt-in true", host: "0.0.0.0", port: "8888", allowValue: "true", want: "0.0.0.0:8888"},
+		{name: "wildcard allowed with opt-in 1", host: "0.0.0.0", port: "8888", allowValue: "1", want: "0.0.0.0:8888"},
+		{name: "wildcard refused with opt-in false", host: "0.0.0.0", port: "8888", allowValue: "false", wantErr: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if tc.allow {
-				t.Setenv(envAllowRemote, "true")
-			}
+			// Set the opt-in for every case so the test does not depend on the
+			// ambient environment of the machine running it.
+			t.Setenv(envAllowRemote, tc.allowValue)
 			got, err := listenAddress(tc.host, tc.port)
 			if tc.wantErr {
 				if err == nil {
@@ -71,27 +86,25 @@ func TestListenAddress(t *testing.T) {
 
 func TestResolveListenAddress(t *testing.T) {
 	tests := []struct {
-		name    string
-		host    string
-		port    string
-		allow   bool
-		want    string
-		wantErr bool
+		name       string
+		host       string
+		port       string
+		allowValue string
+		want       string
+		wantErr    bool
 	}{
-		{name: "defaults to loopback", want: "127.0.0.1:8888"},
-		{name: "explicit loopback", host: "127.0.0.1", port: "9000", want: "127.0.0.1:9000"},
-		{name: "empty host falls back to loopback", host: "", port: "9000", want: "127.0.0.1:9000"},
-		{name: "wildcard refused", host: "0.0.0.0", wantErr: true},
-		{name: "wildcard allowed with opt-in", host: "0.0.0.0", port: "8888", allow: true, want: "0.0.0.0:8888"},
+		{name: "defaults to loopback", allowValue: "", want: "127.0.0.1:8888"},
+		{name: "explicit loopback", host: "127.0.0.1", port: "9000", allowValue: "", want: "127.0.0.1:9000"},
+		{name: "empty host falls back to loopback", host: "", port: "9000", allowValue: "", want: "127.0.0.1:9000"},
+		{name: "wildcard refused", host: "0.0.0.0", allowValue: "", wantErr: true},
+		{name: "wildcard allowed with opt-in", host: "0.0.0.0", port: "8888", allowValue: "true", want: "0.0.0.0:8888"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv(envServerHost, tc.host)
 			t.Setenv(envServerPort, tc.port)
-			if tc.allow {
-				t.Setenv(envAllowRemote, "true")
-			}
+			t.Setenv(envAllowRemote, tc.allowValue)
 			got, err := resolveListenAddress()
 			if tc.wantErr {
 				if err == nil {
