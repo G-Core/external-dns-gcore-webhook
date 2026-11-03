@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,12 +36,22 @@ const banner = `
 `
 
 var (
-	Version    = "v0.0.1"
-	ApiUrl     = ``
-	ApiKey     = ``
-	ServerHost = ``
-	ServerPort = `8080`
-	DryRun     = false
+	Version = "v0.0.1"
+	ApiUrl  = ``
+	ApiKey  = ``
+	DryRun  = false
+)
+
+const (
+	// defaultServerHost keeps the unauthenticated webhook API on the pod's loopback
+	// interface, matching the ExternalDNS webhook contract (a trusted localhost sidecar).
+	defaultServerHost = `127.0.0.1`
+	defaultServerPort = `8888`
+	envServerHost     = `SERVER_HOST`
+	envServerPort     = `SERVER_PORT`
+	// envAllowRemote enables listening on a non-loopback address; without it a
+	// non-loopback SERVER_HOST is rejected because the control API has no authentication.
+	envAllowRemote = `ALLOW_REMOTE_WEBHOOK`
 )
 
 func main() {
@@ -48,19 +59,58 @@ func main() {
 	fmt.Printf(banner, Version)
 	ApiUrl = os.Getenv(gcoreprovider.EnvAPIURL)
 	ApiKey = os.Getenv(gcoreprovider.EnvAPIToken)
-	ServerHost = os.Getenv(`SERVER_HOST`)
-	ServerPort = os.Getenv(`SERVER_PORT`)
-	if ServerPort == `` {
-		ServerPort = `8888`
-	}
 	DryRun = os.Getenv(`DRY_RUN`) == `true`
+
+	addr, err := resolveListenAddress()
+	if err != nil {
+		log.Fatalf("invalid server configuration: %v", err)
+	}
 
 	provider, err := gcoreprovider.NewProvider(endpoint.DomainFilter{}, ApiUrl, ApiKey, DryRun)
 	if err != nil {
 		log.Fatalf("Failed to initialize DNS provider: %v", err)
 	}
-	server := CreateWebServer(provider)
+	server := CreateWebServer(provider, addr)
 	server.Start()
+}
+
+// resolveListenAddress reads SERVER_HOST/SERVER_PORT and returns the address the
+// webhook server should listen on.
+func resolveListenAddress() (string, error) {
+	host := os.Getenv(envServerHost)
+	if host == `` {
+		host = defaultServerHost
+	}
+	port := os.Getenv(envServerPort)
+	if port == `` {
+		port = defaultServerPort
+	}
+	return listenAddress(host, port)
+}
+
+// listenAddress validates the host and builds the TCP listen address.
+// The webhook control API is unauthenticated, so a non-loopback host is refused
+// unless ALLOW_REMOTE_WEBHOOK=true is set explicitly.
+func listenAddress(host, port string) (string, error) {
+	if !isLoopbackHost(host) {
+		if os.Getenv(envAllowRemote) != `true` {
+			return ``, fmt.Errorf(
+				"refusing to listen on non-loopback host %q: the webhook API is unauthenticated, set %s=true to override",
+				host, envAllowRemote)
+		}
+		log.Warnf("listening on non-loopback host %q with %s=true, the webhook API is reachable from the network",
+			host, envAllowRemote)
+	}
+	return net.JoinHostPort(host, port), nil
+}
+
+// isLoopbackHost reports whether host resolves to the local loopback interface.
+func isLoopbackHost(host string) bool {
+	if host == `localhost` {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 type webServer struct {
@@ -84,7 +134,7 @@ func (w *webServer) Start() {
 // - /records (GET): returns the current records
 // - /records (POST): applies the changes
 // - /adjustendpoints (POST): executes the AdjustEndpoints method
-func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
+func CreateWebServer(p *gcoreprovider.DnsProvider, addr string) *webServer {
 
 	r := chi.NewRouter()
 	r.Get(`/health`, func(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +260,7 @@ func CreateWebServer(p *gcoreprovider.DnsProvider) *webServer {
 
 	srv := &webServer{
 		Server: &http.Server{
-			Addr:    fmt.Sprintf("%s:%s", ServerHost, ServerPort),
+			Addr:    addr,
 			Handler: r,
 		}}
 	go func() {
