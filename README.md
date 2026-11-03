@@ -119,6 +119,20 @@ subjects:
 
 `$ kubectl apply -f external-dns-gcore.yaml`
 
+## Network exposure
+
+The webhook control API is unauthenticated, so the server listens on localhost only by default
+(`SERVER_HOST` defaults to `127.0.0.1`). This matches the ExternalDNS webhook contract, where the
+provider runs as a sidecar in the same pod as `external-dns` and is reachable only from localhost.
+
+If the webhook has to be reachable from another pod, for example when the provider runs as a
+separate Deployment, set `SERVER_HOST` to the address to bind and `ALLOW_REMOTE_WEBHOOK=true` to
+acknowledge that the unauthenticated DNS-write API becomes reachable from the network. A
+non-loopback `SERVER_HOST` without `ALLOW_REMOTE_WEBHOOK=true` makes the process stop at startup.
+
+When exposing the webhook remotely, restrict who can reach it with a NetworkPolicy and use a
+least-privilege Gcore API token scoped to the zones ExternalDNS manages.
+
 to debug:
 
 `$ kubectl logs -f external-dns-xxxxPod -c gcore-webhook`
