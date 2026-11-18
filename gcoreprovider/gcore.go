@@ -148,6 +148,10 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		if zone == "" {
 			continue
 		}
+		if !validDNSName(d.DNSName) {
+			log.Warnf("%s: skipping change with invalid DNS name %q", ProviderName, d.DNSName)
+			continue
+		}
 		recordValues := make([]string, 0)
 		errMsg := make([]string, 0)
 		// find content diff to delete
@@ -181,6 +185,10 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		if zone == "" {
 			continue
 		}
+		if !validDNSName(d.DNSName) {
+			log.Warnf("%s: skipping change with invalid DNS name %q", ProviderName, d.DNSName)
+			continue
+		}
 		recordValues := make([]string, 0)
 		errMsg := make([]string, 0)
 		for _, content := range d.Targets {
@@ -208,6 +216,10 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		c := c
 		zone := extractZone(c.DNSName)
 		if zone == "" {
+			continue
+		}
+		if !validDNSName(c.DNSName) {
+			log.Warnf("%s: skipping change with invalid DNS name %q", ProviderName, c.DNSName)
 			continue
 		}
 		recordValues := make([]gdns.ResourceRecord, 0)
@@ -243,6 +255,10 @@ func (p *DnsProvider) ApplyChanges(rootCtx context.Context, changes *plan.Change
 		c := c
 		zone := extractZone(c.DNSName)
 		if zone == "" {
+			continue
+		}
+		if !validDNSName(c.DNSName) {
+			log.Warnf("%s: skipping change with invalid DNS name %q", ProviderName, c.DNSName)
 			continue
 		}
 		recordValues := make([]gdns.ResourceRecord, 0)
@@ -297,7 +313,53 @@ func (p *DnsProvider) GetDomainFilter() endpoint.DomainFilter {
 }
 
 func (p *DnsProvider) AdjustEndpoints(endpoints []*endpoint.Endpoint) ([]*endpoint.Endpoint, error) {
-	return endpoints, nil
+	adjusted := make([]*endpoint.Endpoint, 0, len(endpoints))
+	for _, ep := range endpoints {
+		if ep == nil {
+			continue
+		}
+		if !validDNSName(ep.DNSName) {
+			log.Warnf("%s: dropping endpoint with invalid DNS name %q", ProviderName, ep.DNSName)
+			continue
+		}
+		adjusted = append(adjusted, ep)
+	}
+	return adjusted, nil
+}
+
+// validDNSName reports whether name is a plain hostname safe to embed in the
+// Gcore API path. It rejects "/", "..", "?", "#", whitespace and any byte
+// outside the DNS allowlist: otherwise the SDK's path.Join/Clean collapses
+// "../" and redirects the write out of the intended zone.
+func validDNSName(name string) bool {
+	name = strings.TrimSuffix(name, ".")
+	if name == "" || len(name) > 253 {
+		return false
+	}
+	for i, label := range strings.Split(name, ".") {
+		// An empty label rejects "..", a leading dot and a trailing dot.
+		if label == "" || len(label) > 63 {
+			return false
+		}
+		// A wildcard is only meaningful as the leftmost label.
+		if label == "*" {
+			if i != 0 {
+				return false
+			}
+			continue
+		}
+		for _, r := range label {
+			switch {
+			case r >= 'a' && r <= 'z',
+				r >= 'A' && r <= 'Z',
+				r >= '0' && r <= '9',
+				r == '-', r == '_':
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (p *DnsProvider) PropertyValuesEqual(_ string, previous string, current string) bool {
