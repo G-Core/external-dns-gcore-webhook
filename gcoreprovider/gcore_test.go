@@ -688,6 +688,18 @@ func Test_dnsProvider_AdjustEndpoints(t *testing.T) {
 			in:   []*endpoint.Endpoint{},
 			want: []*endpoint.Endpoint{},
 		},
+		{
+			name: "path traversal names dropped, valid kept",
+			in: []*endpoint.Endpoint{
+				endpoint.NewEndpointWithTTL("bukanlautan.sub.example.com", "A", 10, "1.2.3.4"),
+				endpoint.NewEndpointWithTTL("x/../../example.com/mud.sub.example.com", "A", 10, "1.2.3.4"),
+				endpoint.NewEndpointWithTTL("www/../../other.example.com/www?q=.sub.example.com", "A", 10, "1.2.3.4"),
+				endpoint.NewEndpointWithTTL("../example.com/mud.sub.example.com", "A", 10, "1.2.3.4"),
+			},
+			want: []*endpoint.Endpoint{
+				endpoint.NewEndpointWithTTL("bukanlautan.sub.example.com", "A", 10, "1.2.3.4"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -699,6 +711,40 @@ func Test_dnsProvider_AdjustEndpoints(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("AdjustEndpoints() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validDNSName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		// valid
+		{"simple name", "bukanlautan.sub.example.com", true},
+		{"fqdn trailing dot", "example.sub.example.com.", true},
+		{"txt registry prefix", "a-bukanlautan.sub.example.com", true},
+		{"wildcard leftmost", "*.example.com", true},
+		{"srv underscore labels", "_nginx._tcp.example.sub.example.com", true},
+		// invalid
+		{"empty", "", false},
+		{"leading dot", ".example.com", false},
+		{"double dot", "a..example.com", false},
+		{"slash", "x/y.example.com", false},
+		{"query marker", "foo.example.com?x=1", false},
+		{"whitespace", "foo .example.com", false},
+		{"wildcard not leftmost", "sub.*.example.com", false},
+		// real payloads from the traversal finding
+		{"traversal ancestor", "x/../../example.com/mud.sub.example.com", false},
+		{"traversal query", "www/../../other.example.com/www?q=.sub.example.com", false},
+		{"traversal leading dotdot", "../example.com/mud.sub.example.com", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validDNSName(tt.input); got != tt.want {
+				t.Errorf("validDNSName(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
